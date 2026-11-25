@@ -14,6 +14,7 @@ import {
   Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis
 } from 'recharts';
 import GeographicMap from './components/GeographicMap';
+import { loadLocalDataset, parseAndStoreLocalUpload, resetLocalDataset } from './utils/localDataset';
 
 const API = import.meta.env.VITE_API_BASE_URL || '';
 const COLORS = ['#52e4ff', '#9b8cff', '#49e0b0', '#ffb66e', '#ff6f91', '#7aa8ff'];
@@ -81,11 +82,29 @@ export default function App() {
   const [query,setQuery] = useState(''), [status,setStatus] = useState('All'), [kind,setKind] = useState('All');
   const [range,setRange] = useState('All time'), [mobileNav,setMobileNav] = useState(false);
   const [selected,setSelected] = useState(null), [notice,setNotice] = useState('');
+  async function parseApiJson(r) {
+    const ct = r.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      throw new Error('API_UNAVAILABLE');
+    }
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.detail || 'API error');
+    return j;
+  }
   async function load() {
     setBusy(true);
-    try { const r=await fetch(`${API}/api/transactions`); const j=await r.json(); if(!r.ok) throw Error(j.detail||'API error'); setRows(j.records||[]); setSource(j.source||'Dataset loaded'); }
-    catch(e) { setSource('API offline — start the backend'); setNotice('Could not reach the API server.'); }
-    finally { setBusy(false); }
+    try {
+      const r = await fetch(`${API}/api/transactions`);
+      const j = await parseApiJson(r);
+      setRows(j.records || []);
+      setSource(j.source || 'Dataset loaded');
+    } catch {
+      const local = loadLocalDataset();
+      setRows(local.records);
+      setSource(local.source);
+    } finally {
+      setBusy(false);
+    }
   }
   useEffect(()=>{load()},[]);
   const filtered = useMemo(()=>{
@@ -110,8 +129,63 @@ export default function App() {
   const alerts=filtered.filter(x=>norm(x.Status)==='failed').sort((a,b)=>Number(b.Amount)-Number(a.Amount));
   const avg=filtered.length?total/filtered.length:0;
   const setPageSafe=p=>{setPage(p);setMobileNav(false);window.scrollTo({top:0,behavior:'smooth'});};
-  async function onUpload(e){const f=e.target.files?.[0];if(!f)return;const fd=new FormData();fd.append('file',f);setBusy(true);try{const r=await fetch(`${API}/api/upload`,{method:'POST',body:fd});const j=await r.json();if(!r.ok)throw Error(j.detail||'Upload failed');setRows(j.records||[]);setSource(j.source||f.name);setStatus('All');setKind('All');setQuery('');setNotice(`Loaded ${j.records?.length||0} records from ${f.name}`);}catch(err){setNotice(err.message);}finally{setBusy(false);e.target.value='';}}
-  async function resetDataset(){setBusy(true);try{const r=await fetch(`${API}/api/reset-dataset`,{method:'POST'});const j=await r.json();if(!r.ok)throw Error(j.detail||'Reset failed');setRows(j.records||[]);setSource(j.source||'Bundled sample');setStatus('All');setKind('All');setQuery('');setNotice('Restored the bundled sample dataset.');}catch(err){setNotice(err.message);}finally{setBusy(false);}}
+  async function onUpload(e){
+    const f=e.target.files?.[0];
+    if(!f)return;
+    const fd=new FormData();
+    fd.append('file',f);
+    setBusy(true);
+    try{
+      let j;
+      try {
+        const r=await fetch(`${API}/api/upload`,{method:'POST',body:fd});
+        j=await parseApiJson(r);
+      } catch (apiErr) {
+        if (apiErr.message === 'API_UNAVAILABLE' || apiErr.name === 'TypeError') {
+          j = await parseAndStoreLocalUpload(f);
+        } else {
+          throw apiErr;
+        }
+      }
+      setRows(j.records||[]);
+      setSource(j.source||f.name);
+      setStatus('All');
+      setKind('All');
+      setQuery('');
+      setNotice(`Loaded ${j.records?.length||0} records from ${f.name}`);
+    }catch(err){
+      setNotice(err.message);
+    }finally{
+      setBusy(false);
+      e.target.value='';
+    }
+  }
+  async function resetDataset(){
+    setBusy(true);
+    try{
+      let j;
+      try {
+        const r=await fetch(`${API}/api/reset-dataset`,{method:'POST'});
+        j=await parseApiJson(r);
+      } catch (apiErr) {
+        if (apiErr.message === 'API_UNAVAILABLE' || apiErr.name === 'TypeError') {
+          j = resetLocalDataset();
+        } else {
+          throw apiErr;
+        }
+      }
+      setRows(j.records||[]);
+      setSource(j.source||'Bundled sample');
+      setStatus('All');
+      setKind('All');
+      setQuery('');
+      setNotice('Restored the bundled sample dataset.');
+    }catch(err){
+      setNotice(err.message);
+    }finally{
+      setBusy(false);
+    }
+  }
   function exportCsv(){const cols=['Transaction_ID','Customer_ID','Transaction_Date','Transaction_Type','Amount','Location','Status'];const esc=v=>`"${String(v??'').replaceAll('"','""')}"`;const csv=[cols.join(','),...filtered.map(r=>cols.map(c=>esc(r[c])).join(','))].join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='vault_filtered_transactions.csv';a.click();URL.revokeObjectURL(a.href);}
   const pageSub={
     'Overview':'A unified view of value movement, payment outcomes and transaction behaviour.',

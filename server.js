@@ -138,11 +138,26 @@ function normalizeRecords(rawRows) {
   return result;
 }
 
+const FALLBACK_SAMPLE_CSV = `Transaction_ID,Customer_ID,Transaction_Date,Transaction_Type,Amount,Location,Status
+T001,C101,2026-11-20,Deposit,5000,Bangalore,Success
+T002,C102,2026-11-20,Withdrawal,2000,Mysore,Success
+T003,C103,2026-11-21,Transfer,15000,Mumbai,Success
+T004,C104,2026-11-21,Deposit,8000,Chennai,Success
+T005,C105,2026-11-21,Withdrawal,3000,Delhi,Failed
+T006,C101,2026-11-22,Transfer,12000,Bangalore,Success
+T007,C106,2026-11-22,Deposit,25000,Hyderabad,Success
+T008,C102,2026-11-22,Withdrawal,4500,Mysore,Success
+T009,C107,2026-11-23,Transfer,18000,Pune,Failed
+T010,C108,2026-11-23,Deposit,10000,Delhi,Success
+`;
+
 function loadFrame(upload = null) {
   if (!upload) {
     const targetPath = fs.existsSync(ACTIVE_DATA_PATH) ? ACTIVE_DATA_PATH : DATA_PATH;
-    const buffer = fs.readFileSync(targetPath);
-    const rawRows = parseRowsFromBuffer(targetPath, buffer);
+    const buffer = fs.existsSync(targetPath)
+      ? fs.readFileSync(targetPath)
+      : Buffer.from(FALLBACK_SAMPLE_CSV, 'utf-8');
+    const rawRows = parseRowsFromBuffer(fs.existsSync(targetPath) ? targetPath : 'sample.csv', buffer);
     return normalizeRecords(rawRows);
   }
   const { filename, buffer } = upload;
