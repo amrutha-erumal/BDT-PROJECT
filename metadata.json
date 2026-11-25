@@ -1,0 +1,5 @@
+{
+  "name": "Vault — Banking Transaction Intelligence",
+  "description": "A multi-view banking transaction analytics workspace with 3D network visualization, flow maps, risk monitoring, and CSV/Excel dataset ingestion.",
+  "requestFramePermissions": []
+}

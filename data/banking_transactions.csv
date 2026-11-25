@@ -1,0 +1,11 @@
+Transaction_ID,Customer_ID,Transaction_Date,Transaction_Type,Amount,Location,Status
+T001,C101,2026-11-20,Deposit,5000,Bangalore,Success
+T002,C102,2026-11-20,Withdrawal,2000,Mysore,Success
+T003,C103,2026-11-21,Transfer,15000,Mumbai,Success
+T004,C104,2026-11-21,Deposit,8000,Chennai,Success
+T005,C105,2026-11-21,Withdrawal,3000,Delhi,Failed
+T006,C101,2026-11-22,Transfer,12000,Bangalore,Success
+T007,C106,2026-11-22,Deposit,25000,Hyderabad,Success
+T008,C102,2026-11-22,Withdrawal,4500,Mysore,Success
+T009,C107,2026-11-23,Transfer,18000,Pune,Failed
+T010,C108,2026-11-23,Deposit,10000,Delhi,Success
